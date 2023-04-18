@@ -31,6 +31,7 @@ _args = _get_args()
 
 TOKEN = _args["TOKEN"]
 BOT_USERNAME = _args["BOT_USERNAME"]
+NULL_CHAT = _args["NULL_CHAT"]
 
 
 TOWER: Final[str] = "ITSWEDNESDAYMYDUDES!"

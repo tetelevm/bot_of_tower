@@ -1,10 +1,10 @@
 import asyncio
-from functools import wraps
+from functools import wraps, partial
 from typing import Coroutine, Callable
 
 from telegram import Update, Message
 from telegram.constants import ParseMode
-from telegram.ext.filters import ChatType, COMMAND
+from telegram.ext.filters import MessageFilter, ChatType, COMMAND
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -12,18 +12,32 @@ from telegram.ext import (
     CallbackContext,
 )
 
+from config import TOKEN, BOT_USERNAME, WEDNESDAY_MODE, NULL_CHAT
 from observer import Observer
-from config import TOKEN, BOT_USERNAME, WEDNESDAY_MODE
 from periodic import everyday_cron, add_action, is_wednesday_today, is_thursday_today
 from messages import *
 
 
-class CommandWithName(COMMAND.__class__):
+UNTRACEABLE_CHATS = (NULL_CHAT, )
+
+
+class NotTrackFilter(MessageFilter):
+    """
+    A filter that ignores messages that come in the standard untraceable
+    chats.
+    """
+
+    def filter(self, message: Message) -> bool:
+        return message.chat.id not in UNTRACEABLE_CHATS
+
+
+class CommandWithName(MessageFilter):
     def filter(self, message: Message) -> bool:
         command = message.text.splitlines()[0].split(" ")[0]
         return command.endswith(BOT_USERNAME)
 
 
+NOTRACK_FILTER = NotTrackFilter()
 COMMAND_WITH_NAME = CommandWithName()
 
 
@@ -291,16 +305,19 @@ def create_app(token: str):
     app = Application.builder().token(token).build()
 
     command_filter = COMMAND & (
-        (ChatType.GROUPS & COMMAND_WITH_NAME)  # only with bot_name in groups
+        (NOTRACK_FILTER & ChatType.GROUPS & COMMAND_WITH_NAME)  # only with bot_name in groups
         | ChatType.PRIVATE
     )
-    app.add_handler(CommandHandler("start", start, command_filter, block=False))
-    app.add_handler(CommandHandler("help", help, command_filter, block=False))
-    app.add_handler(CommandHandler("enable", enable, command_filter, block=False))
-    app.add_handler(CommandHandler("please_disable", disable, command_filter, block=False))
+    command_handler = partial(CommandHandler, filters=command_filter, block=False)
+    message_handler = partial(MessageHandler, block=False)
 
-    app.add_handler(MessageHandler(ChatType.PRIVATE, dont_understand, block=False))
-    app.add_handler(MessageHandler(ChatType.GROUPS, standard_message, block=False))
+    app.add_handler(command_handler("start", start))
+    app.add_handler(command_handler("help", help))
+    app.add_handler(command_handler("enable", enable))
+    app.add_handler(command_handler("please_disable", disable))
+
+    app.add_handler(message_handler(ChatType.PRIVATE, dont_understand))
+    app.add_handler(message_handler(NOTRACK_FILTER & ChatType.GROUPS, standard_message))
 
     return app
 
@@ -332,7 +349,7 @@ async def pulling(*coros: Coroutine):
 
     await asyncio.gather(*coros)
     while True:
-        await asyncio.sleep(60)
+        await asyncio.sleep(1)
 
 
 observer = Observer()

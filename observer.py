@@ -1,10 +1,11 @@
+import asyncio
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
 
-from telegram import Update
+from telegram import Update, Chat
 from telegram.ext.filters import Text
 
-from config import TOWER, CRASH_LENS, WEDNESDAY_MODE
+from config import TOWER, CRASH_LENS, WEDNESDAY_MODE, NULL_CHAT
 
 
 __all__ = [
@@ -140,11 +141,16 @@ class ChatObserver:
         """
         return user_id in self.user_ids
 
-    async def is_no_deleted(self) -> bool:
+    async def is_no_deleted(self, chat: Chat) -> bool:
         """
         Checks if there are deleted messages in the tower.
         """
-        # TODO!
+
+        coros = [
+            chat.forward_to(NULL_CHAT, message_id)
+            for message_id in self.message_ids
+        ]
+        await asyncio.gather(*coros)
         return True
 
     async def check_correct(self, update: Update) -> Optional[str]:
@@ -180,7 +186,7 @@ class ChatObserver:
         #     # if the user has already participated, he cannot do it a second time
         #     return "fall_repetition"
 
-        if not (await self.is_no_deleted()):
+        if not (await self.is_no_deleted(message.chat)):
             # if any message from the tower has been deleted, the tower has fallen
             return "fall_deleted"
 

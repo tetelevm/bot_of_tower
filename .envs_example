@@ -1,4 +1,5 @@
 {
     "TOKEN": "your:token",
-    "BOT_USERNAME": "@username_of_bot"
+    "BOT_USERNAME": "@username_of_bot",
+    "NULL_CHAT": 12345
 }
