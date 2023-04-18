@@ -1,2 +1,2 @@
 libmc==1.4.2
-python-telegram-bot==20.1
+python-telegram-bot==20.2
