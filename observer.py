@@ -1,10 +1,13 @@
+import asyncio
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
 
-from telegram import Update
+from telegram import Update, Chat
 from telegram.ext.filters import Text
+from telegram.error import BadRequest
 
-from config import TOWER, CRASH_LENS, WEDNESDAY_MODE
+from config import TOWER, CRASH_LENS, WEDNESDAY_MODE, NULL_CHAT
+from periodic import is_wednesday_today
 
 
 __all__ = [
@@ -12,11 +15,11 @@ __all__ = [
     "Observer",
 ]
 
-
-# буква, id_автора, id_сообщения
+# letter, id_author, id_message
 LETTER_MSG_TYPE = Tuple[str, int, int]
 
 IS_LETTER = Text(list(set(TOWER)))
+TOWER_LENGTH = len(TOWER)
 
 
 @dataclass
@@ -65,7 +68,7 @@ class ChatObserver:
         """
         A list of the id messages that build up the tower.
         """
-        return list(letter[3] for letter in self.letters)
+        return list(letter[2] for letter in self.letters)
 
     def __str__(self):
         return "".join(self.chars)
@@ -140,12 +143,20 @@ class ChatObserver:
         """
         return user_id in self.user_ids
 
-    async def is_no_deleted(self) -> bool:
+    async def is_no_deleted(self, chat: Chat) -> bool:
         """
         Checks if there are deleted messages in the tower.
         """
-        # TODO!
-        return True
+
+        coros = [
+            chat.forward_to(NULL_CHAT, message_id)
+            for message_id in self.message_ids
+        ]
+        try:
+            await asyncio.gather(*coros)
+            return True
+        except BadRequest:
+            return False
 
     async def check_correct(self, update: Update) -> Optional[str]:
         """
@@ -158,7 +169,7 @@ class ChatObserver:
         - the event does not change a letter in the tower
         - the event is the expected letter
         - the letter is not from an already participating user
-        - no one has deleted a letter
+        - no one has deleted a letter (checked only at the end of tower)
         """
 
         message = update.message
@@ -175,14 +186,16 @@ class ChatObserver:
             # if message is not an expected letter, the tower is fallen
             return "fall"
 
-        # user_id = message.from_user.id
-        # if user_id in self.user_ids:
-        #     # if the user has already participated, he cannot do it a second time
-        #     return "fall_repetition"
+        user_id = message.from_user.id
+        if user_id in self.user_ids:
+            # if the user has already participated, he cannot do it a second time
+            return "fall_repetition"
 
-        if not (await self.is_no_deleted()):
-            # if any message from the tower has been deleted, the tower has fallen
-            return "fall_deleted"
+        # since it is too high cost, we check only at the very end of building
+        if self.length == (TOWER_LENGTH - 1):
+            if not (await self.is_no_deleted(message.chat)):
+                # if any message from the tower has been deleted, the tower has fallen
+                return "fall_deleted"
 
 
 class Observer:
@@ -196,7 +209,7 @@ class Observer:
     infos: Dict[int, ChatObserver]
 
     def __init__(self):
-        self.is_enable = not WEDNESDAY_MODE
+        self.is_enable = not WEDNESDAY_MODE or is_wednesday_today()
         self.infos = dict()
 
     @property
