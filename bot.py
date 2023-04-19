@@ -2,7 +2,7 @@ import asyncio
 from functools import wraps, partial
 from typing import Coroutine, Callable
 
-from telegram import Update, Message
+from telegram import Update, Message, Bot
 from telegram.constants import ParseMode
 from telegram.ext.filters import MessageFilter, ChatType, COMMAND
 from telegram.ext import (
@@ -322,12 +322,15 @@ def create_app(token: str):
     return app
 
 
-async def run_app(app: Application):
+async def run_app(token: str):
     """
     Coroutine, which starts the program and keeps it running.
     """
 
-    await app.initialize()
+    app = create_app(token)
+    global bot
+    bot = app.bot
+
     updates = [
         Update.MESSAGE,
         Update.EDITED_MESSAGE,
@@ -336,9 +339,10 @@ async def run_app(app: Application):
         Update.CHAT_MEMBER,
         Update.CHAT_JOIN_REQUEST,
     ]
+    await app.initialize()
     await app.updater.start_polling(allowed_updates=updates)
-    print("Bot is running!")
     await app.start()
+    print("Bot is running!")
 
 
 async def pulling(*coros: Coroutine):
@@ -352,12 +356,13 @@ async def pulling(*coros: Coroutine):
         await asyncio.sleep(1)
 
 
+# ===
+
+
+bot: Bot
 observer = Observer()
 
-app = create_app(TOKEN)
-bot = app.bot
-run_coro = run_app(app)
-
+run_coro = run_app(TOKEN)
 add_action(send_end_day_message)
 if WEDNESDAY_MODE:
     add_action(only_wednesday_work_switch)
