@@ -13,8 +13,7 @@ __all__ = [
     "Observer",
 ]
 
-
-# буква, id_автора, id_сообщения
+# letter, id_author, id_message
 LETTER_MSG_TYPE = Tuple[str, int, int]
 
 IS_LETTER = Text(list(set(TOWER)))
@@ -66,7 +65,7 @@ class ChatObserver:
         """
         A list of the id messages that build up the tower.
         """
-        return list(letter[3] for letter in self.letters)
+        return list(letter[2] for letter in self.letters)
 
     def __str__(self):
         return "".join(self.chars)
