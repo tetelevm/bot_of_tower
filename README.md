@@ -42,8 +42,10 @@ Then you need to:
 - create a telegram bot
 - create a file `.envs` following the example of `.envs_example`
 - configure the configuration in `config.py` (more about that below)
+- create a special empty chat room, add a bot there and give it permissions
+    (needed to check for deletion of letters, you can get out of there)
 - add bot to the chat you're going to monitor (you can do it later, you can add
-  it to several)
+    it to several)
 - give the bot permission to read and write messages
 - run the bot (`python3 bot.py`)
 
