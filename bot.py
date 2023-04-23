@@ -12,10 +12,10 @@ from telegram.ext import (
     CallbackContext,
 )
 
+from messages import *
 from config import TOKEN, BOT_USERNAME, WEDNESDAY_MODE, NULL_CHAT
 from observer import Observer
 from periodic import everyday_cron, add_action, is_wednesday_today, is_thursday_today
-from messages import *
 
 
 UNTRACEABLE_CHATS = (NULL_CHAT, )
@@ -102,7 +102,7 @@ def ignore_checker(func: Callable):
 
     @wraps(func)
     async def wrapped(update: Update, context: CallbackContext):
-        if not observer.looked(update.effective_chat.id):
+        if not observer.is_looked(update.effective_chat.id):
             return
 
         if observer.get(update.effective_chat.id).is_disable:
@@ -149,7 +149,7 @@ async def enable(update: Update, context: CallbackContext):
     """
 
     chat_id = update.effective_chat.id
-    if observer.looked(chat_id):
+    if observer.is_looked(chat_id):
         msg = (
             MSG_enable_but_disable
             if observer.get(chat_id).is_disable else
@@ -170,7 +170,7 @@ async def disable(update: Update, context: CallbackContext):
     """
 
     chat_id = update.effective_chat.id
-    if not observer.looked(chat_id):
+    if not observer.is_looked(chat_id):
         return await update.effective_chat.send_message(MSG_disable_not_enable)
 
     if observer.get(chat_id).is_disable:

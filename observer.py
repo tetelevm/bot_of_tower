@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import asyncio
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Final
 from dataclasses import dataclass, field
 
 from telegram import Update, Chat
 from telegram.ext.filters import Text
 from telegram.error import BadRequest
 
-from config import TOWER, CRASH_LENS, WEDNESDAY_MODE, NULL_CHAT
+from libmc import Client as McClient
+
+from config import TOWER, CRASH_LENS, WEDNESDAY_MODE, NULL_CHAT, MEMCACHED_HOST
 from periodic import is_wednesday_today
 
 
@@ -17,9 +21,13 @@ __all__ = [
 
 # letter, id_author, id_message
 LETTER_MSG_TYPE = Tuple[str, int, int]
+TOWER_TYPE = List[LETTER_MSG_TYPE]
+TOWER_ON_MC_TYPE = Tuple[TOWER_TYPE, int, bool, bool]
 
 IS_LETTER = Text(list(set(TOWER)))
 TOWER_LENGTH = len(TOWER)
+
+TOWER_META_KEY: Final[str] = "all_towers_chat_ids"
 
 
 @dataclass
@@ -36,11 +44,42 @@ class ChatObserver:
 
     _mutable_fields = ["letters", "crash_times", "is_built", "is_disable"]
 
+    mc_client: McClient
     chat_id: int
-    letters: List[LETTER_MSG_TYPE] = field(default_factory=list)
+    letters: TOWER_TYPE = field(default_factory=list)
     crash_times: int = 0
     is_built: bool = False
     is_disable: bool = False
+
+    @classmethod
+    def from_mc(cls, mc_client: McClient, chat_id: int) -> ChatObserver:
+        """
+        Loads data from MC by chat_id and creates an observer object.
+        """
+
+        data: TOWER_ON_MC_TYPE = mc_client.get(str(chat_id))
+        new_chat_observer = cls(
+            mc_client=mc_client,
+            chat_id=chat_id,
+            letters=data[0],
+            crash_times=data[1],
+            is_built=data[2],
+            is_disable=data[3],
+        )
+        return new_chat_observer
+
+    def to_mc(self):
+        """
+        Overwrites its data in the MC.
+        """
+
+        data = (
+            self.letters,
+            self.crash_times,
+            self.is_built,
+            self.is_disable,
+        )
+        self.mc_client.set(str(self.chat_id), data)
 
     @property
     def length(self) -> int:
@@ -81,7 +120,7 @@ class ChatObserver:
         return str(self) == TOWER
 
     @property
-    def expected_letter(self) -> str:
+    def _expected_letter(self) -> str:
         """
         The letter that should be next in the tower.
         If the tower is built, it will raise an error.
@@ -111,7 +150,7 @@ class ChatObserver:
 
     def update(
             self,
-            letters: List[LETTER_MSG_TYPE] = None,
+            letters: TOWER_TYPE = None,
             crash_times: int = None,
             is_built: bool = None,
             is_disable: bool = None,
@@ -124,12 +163,13 @@ class ChatObserver:
         for (name, value) in zip(self._mutable_fields, fields):
             if value is not None:
                 setattr(self, name, value)
+        self.to_mc()
 
     def delete(self):
         """
         Deletes all data about this chat from memory.
         """
-        pass
+        self.mc_client.delete(str(self.chat_id))
 
     def add_letter(self, letter: LETTER_MSG_TYPE):
         """
@@ -137,13 +177,13 @@ class ChatObserver:
         """
         self.update(letters=self.letters + [letter])
 
-    def is_no_repetition(self, user_id) -> bool:
+    def _is_no_repetition(self, user_id) -> bool:
         """
         Checks if there is already a letter from that participant.
         """
         return user_id in self.user_ids
 
-    async def is_no_deleted(self, chat: Chat) -> bool:
+    async def _is_no_deleted(self, chat: Chat) -> bool:
         """
         Checks if there are deleted messages in the tower.
         """
@@ -182,18 +222,17 @@ class ChatObserver:
                 # if not, we just ignore the event
                 return "ignore"
 
-        if not (IS_LETTER.filter(message) and message.text == self.expected_letter):
+        if not (IS_LETTER.filter(message) and message.text == self._expected_letter):
             # if message is not an expected letter, the tower is fallen
             return "fall"
 
-        user_id = message.from_user.id
-        if user_id in self.user_ids:
+        if not self._is_no_repetition(message.from_user.id):
             # if the user has already participated, he cannot do it a second time
             return "fall_repetition"
 
         # since it is too high cost, we check only at the very end of building
         if self.length == (TOWER_LENGTH - 1):
-            if not (await self.is_no_deleted(message.chat)):
+            if not (await self._is_no_deleted(message.chat)):
                 # if any message from the tower has been deleted, the tower has fallen
                 return "fall_deleted"
 
@@ -207,10 +246,27 @@ class Observer:
 
     is_enable: bool
     infos: Dict[int, ChatObserver]
+    mc_client: McClient
 
     def __init__(self):
         self.is_enable = not WEDNESDAY_MODE or is_wednesday_today()
+        self.mc_client = McClient([MEMCACHED_HOST], prefix="tower_")
+        self._init_infos()
+
+    def _init_infos(self):
+        """
+        Loads from MC the data of all chats that are already building a
+        towers.
+        """
+
         self.infos = dict()
+        all_chats = self.mc_client.get(TOWER_META_KEY)
+        if all_chats is None:
+            all_chats = []
+            self.mc_client.set(TOWER_META_KEY, [])
+
+        for chat_id in all_chats:
+            self.infos[chat_id] = ChatObserver.from_mc(self.mc_client, chat_id)
 
     @property
     def all_chats(self) -> List[int]:
@@ -219,7 +275,7 @@ class Observer:
         """
         return list(self.infos.keys())
 
-    def looked(self, chat_id: int) -> bool:
+    def is_looked(self, chat_id: int) -> bool:
         """
         Checks if there is an observer for this chat.
         """
@@ -235,12 +291,16 @@ class Observer:
         """
         Creates a new observer for the given chat.
         """
-        self.infos[chat_id] = ChatObserver(chat_id=chat_id)
+
+        self.infos[chat_id] = ChatObserver(mc_client=self.mc_client, chat_id=chat_id)
+        self.mc_client.set(TOWER_META_KEY, list(self.infos.keys()))
 
     def delete_all(self):
         """
         Deletes all observers.
         """
+
         for chat in self.infos.values():
             chat.delete()
         self.infos = dict()
+        self.mc_client.set(TOWER_META_KEY, [])

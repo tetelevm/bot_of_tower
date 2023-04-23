@@ -9,8 +9,7 @@ from pathlib import Path
 from typing import Final, Tuple
 
 
-VERSION: Final[str] = "0.7"
-# VERSION: Final[str] = "1.0"  # add tower storing in memcache
+VERSION: Final[str] = "1.0"
 
 
 def _get_args() -> dict:
@@ -31,6 +30,9 @@ _args = _get_args()
 TOKEN = _args["TOKEN"]
 BOT_USERNAME = _args["BOT_USERNAME"]
 NULL_CHAT = _args["NULL_CHAT"]
+
+
+MEMCACHED_HOST: Final[str] = "localhost:11211"
 
 
 TOWER: Final[str] = "ITSWEDNESDAYMYDUDES!"

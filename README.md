@@ -42,6 +42,7 @@ Then you need to:
 - create a telegram bot
 - create a file `.envs` following the example of `.envs_example`
 - configure the configuration in `config.py` (more about that below)
+- locally run memcached on port `11211` (`MEMCACHED_HOST` parameter)
 - create a special empty chat room, add a bot there and give it permissions
     (needed to check for deletion of letters, you can get out of there)
 - add bot to the chat you're going to monitor (you can do it later, you can add
