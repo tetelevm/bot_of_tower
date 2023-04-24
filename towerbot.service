@@ -3,8 +3,8 @@ Description= Bot to control the building of towers
 After=network.target
 
 [Service]
-ExecStart=/root/envs/bots/bin/python3.8 bot.py
-ExecReload=/root/envs/bots/bin/python3.8 bot.py
+ExecStart=/opt/bot_of_tower/env/bin/python3.9 bot.py
+ExecReload=/opt/bot_of_tower/env/bin/python3.9 bot.py
 WorkingDirectory=/opt/bot_of_tower/
 KillMode=control-group
 Restart=always
