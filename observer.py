@@ -10,7 +10,7 @@ from telegram.error import BadRequest
 
 from libmc import Client as McClient
 
-from config import TOWER, CRASH_LENS, WEDNESDAY_MODE, NULL_CHAT, MEMCACHED_HOST
+from config import Args, Params, Checks
 from periodic import is_wednesday_today
 
 
@@ -24,8 +24,8 @@ LETTER_MSG_TYPE = Tuple[str, int, int]
 TOWER_TYPE = List[LETTER_MSG_TYPE]
 TOWER_ON_MC_TYPE = Tuple[TOWER_TYPE, int, bool, bool]
 
-IS_LETTER = Text(list(set(TOWER)))
-TOWER_LENGTH = len(TOWER)
+IS_LETTER = Text(list(set(Params.TOWER)))
+TOWER_LENGTH = len(Params.TOWER)
 
 TOWER_META_KEY: Final[str] = "all_towers_chat_ids"
 
@@ -117,7 +117,7 @@ class ChatObserver:
         """
         Checks if the tower is built or not.
         """
-        return str(self) == TOWER
+        return str(self) == Params.TOWER
 
     @property
     def _expected_letter(self) -> str:
@@ -125,7 +125,7 @@ class ChatObserver:
         The letter that should be next in the tower.
         If the tower is built, it will raise an error.
         """
-        return TOWER[self.length]
+        return Params.TOWER[self.length]
 
     @property
     def crash_type(self) -> int:
@@ -133,7 +133,7 @@ class ChatObserver:
         Chooses how and when the bot should crash the tower.
         The first breaks are unique, the last one is looped.
         """
-        return min(self.crash_times, len(CRASH_LENS)-1)
+        return min(self.crash_times, len(Params.CRASH_LENS)-1)
 
     @property
     def is_need_to_crash(self) -> bool:
@@ -145,7 +145,7 @@ class ChatObserver:
         """
         return (
             self.is_built
-            and self.length == CRASH_LENS[self.crash_type]
+            and self.length == Params.CRASH_LENS[self.crash_type]
         )
 
     def update(
@@ -189,7 +189,7 @@ class ChatObserver:
         """
 
         coros = [
-            chat.forward_to(NULL_CHAT, message_id)
+            chat.forward_to(Args.NULL_CHAT, message_id)
             for message_id in self.message_ids
         ]
         try:
@@ -215,7 +215,7 @@ class ChatObserver:
         message = update.message
         if update.edited_message is not None:
             # some message has been edited
-            if update.edited_message.id in self.message_ids:
+            if Checks.CHANGING and update.edited_message.id in self.message_ids:
                 # if the message is from the tower, the tower has fallen
                 return "fall_edited"
             else:
@@ -226,12 +226,12 @@ class ChatObserver:
             # if message is not an expected letter, the tower is fallen
             return "fall"
 
-        if not self._is_no_repetition(message.from_user.id):
+        if Checks.UNIQUENESS and not self._is_no_repetition(message.from_user.id):
             # if the user has already participated, he cannot do it a second time
             return "fall_repetition"
 
         # since it is too high cost, we check only at the very end of building
-        if self.length == (TOWER_LENGTH - 1):
+        if Checks.DELETING and self.length == (TOWER_LENGTH - 1):
             if not (await self._is_no_deleted(message.chat)):
                 # if any message from the tower has been deleted, the tower has fallen
                 return "fall_deleted"
@@ -249,8 +249,8 @@ class Observer:
     mc_client: McClient
 
     def __init__(self):
-        self.is_enable = not WEDNESDAY_MODE or is_wednesday_today()
-        self.mc_client = McClient([MEMCACHED_HOST], prefix="tower_")
+        self.is_enable = not Params.WEDNESDAY_MODE or is_wednesday_today()
+        self.mc_client = McClient([Args.MEMCACHED_HOST], prefix="tower_")
         self._init_infos()
 
     def _init_infos(self):

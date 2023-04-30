@@ -13,12 +13,12 @@ from telegram.ext import (
 )
 
 from messages import *
-from config import TOKEN, BOT_USERNAME, WEDNESDAY_MODE, NULL_CHAT
+from config import Args, Params
 from observer import Observer
 from periodic import everyday_cron, add_action, is_wednesday_today, is_thursday_today
 
 
-UNTRACEABLE_CHATS = (NULL_CHAT, )
+UNTRACEABLE_CHATS = (Args.NULL_CHAT, )
 
 
 class NotTrackFilter(MessageFilter):
@@ -34,7 +34,7 @@ class NotTrackFilter(MessageFilter):
 class CommandWithName(MessageFilter):
     def filter(self, message: Message) -> bool:
         command = message.text.splitlines()[0].split(" ")[0]
-        return command.endswith(BOT_USERNAME)
+        return command.endswith(Args.BOT_USERNAME)
 
 
 NOTRACK_FILTER = NotTrackFilter()
@@ -81,7 +81,7 @@ def wednesday_checker(func: Callable):
     inactive, the decorator is just ignored).
     """
 
-    if not WEDNESDAY_MODE:
+    if not Params.WEDNESDAY_MODE:
         return func
 
     @wraps(func)
@@ -263,7 +263,11 @@ async def only_wednesday_work_switch():
         observer.is_enable = False
 
 
-end_day_message = MSG_wednesday_end if WEDNESDAY_MODE else MSG_day_end
+end_day_message = (
+    MSG_wednesday_end
+    if Params.WEDNESDAY_MODE else
+    MSG_day_end
+)
 
 
 async def send_end_day_message():
@@ -362,9 +366,9 @@ async def pulling(*coros: Coroutine):
 bot: Bot
 observer = Observer()
 
-run_coro = run_app(TOKEN)
+run_coro = run_app(Args.TOKEN)
 add_action(send_end_day_message)
-if WEDNESDAY_MODE:
+if Params.WEDNESDAY_MODE:
     add_action(only_wednesday_work_switch)
 cron_coro = everyday_cron()
 
