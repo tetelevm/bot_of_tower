@@ -16,7 +16,7 @@ from telegram.ext import (
 from messages import *
 from config import Args, Params
 from observer import Observer
-from periodic import everyday_cron, add_action, is_wednesday_today, is_thursday_today
+from periodic import everyday_cron, add_action, is_wednesday_today, is_thursday_today, is_monday_today, is_tuesday_today
 
 
 UNTRACEABLE_CHATS = (Args.NULL_CHAT, )
@@ -264,12 +264,11 @@ async def only_wednesday_work_switch():
         observer.is_enable = False
 
 
-async def only_2m_work_switch():
+async def only_monday_work_switch():
     # testing function
-    m = time.time() // 60 % 2
-    if m == 1:
+    if is_monday_today():
         observer.is_enable = True
-    elif m == 0:
+    elif is_tuesday_today():
         observer.is_enable = False
 
 
@@ -380,7 +379,7 @@ run_coro = run_app(Args.TOKEN)
 add_action(send_end_day_message)
 if Params.WEDNESDAY_MODE:
     # add_action(only_wednesday_work_switch)
-    add_action(only_2m_work_switch)
+    add_action(only_monday_work_switch)
 cron_coro = everyday_cron()
 
 asyncio.run(pulling(run_coro, cron_coro))
