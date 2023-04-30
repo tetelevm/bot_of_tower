@@ -1,5 +1,6 @@
 import asyncio
 import datetime as dt
+import time
 from typing import Callable, Coroutine, List
 
 
@@ -58,6 +59,11 @@ async def wait_for_next_day():
     await asyncio.sleep(SECOND_IN_DAYS - seconds_from_midnight)
 
 
+async def wait_minute():
+    # testing function
+    await asyncio.sleep(60 - (time.time() % 60))
+
+
 async def everyday_cron():
     """
     Every day at midnight executes the set actions.
@@ -66,6 +72,6 @@ async def everyday_cron():
     """
 
     while True:
-        await wait_for_next_day()
+        await wait_minute()
         for action in actions:
             await action()

@@ -1,6 +1,7 @@
 import asyncio
 from functools import wraps, partial
 from typing import Coroutine, Callable
+import time
 
 from telegram import Update, Message, Bot
 from telegram.constants import ParseMode
@@ -263,6 +264,15 @@ async def only_wednesday_work_switch():
         observer.is_enable = False
 
 
+async def only_2m_work_switch():
+    # testing function
+    m = time.time() // 60 % 2
+    if m == 1:
+        observer.is_enable = True
+    elif m == 0:
+        observer.is_enable = False
+
+
 end_day_message = (
     MSG_wednesday_end
     if Params.WEDNESDAY_MODE else
@@ -369,7 +379,8 @@ observer = Observer()
 run_coro = run_app(Args.TOKEN)
 add_action(send_end_day_message)
 if Params.WEDNESDAY_MODE:
-    add_action(only_wednesday_work_switch)
+    # add_action(only_wednesday_work_switch)
+    add_action(only_2m_work_switch)
 cron_coro = everyday_cron()
 
 asyncio.run(pulling(run_coro, cron_coro))
