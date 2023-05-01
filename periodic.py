@@ -87,6 +87,6 @@ async def everyday_cron():
     """
 
     while True:
-        await wait_minute()
+        await wait_for_next_day()
         for action in actions:
             await action()
