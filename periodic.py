@@ -11,7 +11,6 @@ __all__ = [
     "wait_for_next_day",
     "everyday_cron",
 
-    "is_monday_today",
     "is_tuesday_today",
 ]
 
@@ -38,12 +37,6 @@ def is_thursday_today() -> bool:
 
     utc_now = dt.datetime.utcnow()
     return dt.date.isoweekday(utc_now) == 4
-
-
-def is_monday_today() -> bool:
-    # testing function
-    utc_now = dt.datetime.utcnow()
-    return dt.date.isoweekday(utc_now) == 1
 
 
 def is_tuesday_today() -> bool:
