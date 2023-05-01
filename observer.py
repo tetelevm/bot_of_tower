@@ -23,6 +23,7 @@ __all__ = [
 LETTER_MSG_TYPE = Tuple[str, int, int]
 TOWER_TYPE = List[LETTER_MSG_TYPE]
 TOWER_ON_MC_TYPE = Tuple[TOWER_TYPE, int, bool, bool]
+get_null_tower_data = lambda: [[], 0, False, False]
 
 IS_LETTER = Text(list(set(Params.TOWER)))
 TOWER_LENGTH = len(Params.TOWER)
@@ -57,7 +58,7 @@ class ChatObserver:
         Loads data from MC by chat_id and creates an observer object.
         """
 
-        data: TOWER_ON_MC_TYPE = mc_client.get(str(chat_id))
+        data: TOWER_ON_MC_TYPE = mc_client.get(str(chat_id)) or get_null_tower_data()
         new_chat_observer = cls(
             mc_client=mc_client,
             chat_id=chat_id,
