@@ -51,12 +51,12 @@ class Args(metaclass=_CustomEnum):
 class Params(metaclass=_CustomEnum):
     TOWER: Final[str] = "ITSWEDNESDAYMYDUDES!"
     CRASH_LENS: Tuple[int, ...] = (3, 14, 12, 7, 3)
-    MINIMAL_CHECK_LEN: Final[int] = 3
+    MINIMAL_CHECK_LEN: Final[int] = 2
     WEDNESDAY_MODE: Final[bool] = True
 
 
 # types of checks
 class Checks(metaclass=_CustomEnum):
-    UNIQUENESS = False
+    UNIQUENESS = True
     DELETING = True
     CHANGING = True

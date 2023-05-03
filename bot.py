@@ -377,8 +377,8 @@ observer = Observer()
 run_coro = run_app(Args.TOKEN)
 add_action(send_end_day_message)
 if Params.WEDNESDAY_MODE:
-    # add_action(only_wednesday_work_switch)
-    add_action(only_tuesday_work_switch)
+    add_action(only_wednesday_work_switch)
+    # add_action(only_tuesday_work_switch)
 cron_coro = everyday_cron()
 
 asyncio.run(pulling(run_coro, cron_coro))
