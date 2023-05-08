@@ -40,6 +40,9 @@ class _CustomEnum(type):
         pass
 
 
+# === configs ==========================================================
+
+
 class Args(metaclass=_CustomEnum):
     TOKEN = _args["TOKEN"]
     BOT_USERNAME = _args["BOT_USERNAME"]
@@ -51,8 +54,10 @@ class Args(metaclass=_CustomEnum):
 class Params(metaclass=_CustomEnum):
     TOWER: Final[str] = "ITSWEDNESDAYMYDUDES!"
     CRASH_LENS: Tuple[int, ...] = (3, 14, 12, 7, 3)
-    MINIMAL_CHECK_LEN: Final[int] = 2
-    WEDNESDAY_MODE: Final[bool] = True
+    MINIMAL_CHECK_LEN: Final[int] = 3
+
+    ONEDAY_MODE: Final[bool] = True
+    DAY_NUMBER: Final[int] = 3
 
 
 # types of checks
@@ -60,3 +65,6 @@ class Checks(metaclass=_CustomEnum):
     UNIQUENESS = True
     DELETING = True
     CHANGING = True
+
+
+# ======================================================================

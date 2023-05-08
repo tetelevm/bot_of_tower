@@ -11,7 +11,7 @@ from telegram.error import BadRequest
 from libmc import Client as McClient
 
 from config import Args, Params, Checks
-from periodic import is_wednesday_today, is_tuesday_today
+from periodic import is_same_day_today
 
 
 __all__ = [
@@ -250,8 +250,7 @@ class Observer:
     mc_client: McClient
 
     def __init__(self):
-        # self.is_enable = not Params.WEDNESDAY_MODE or is_tuesday_today()
-        self.is_enable = not Params.WEDNESDAY_MODE or is_wednesday_today()
+        self.is_enable = is_same_day_today()
         self.mc_client = McClient([Args.MEMCACHED_HOST], prefix="tower_")
         self._init_infos()
 

@@ -3,15 +3,16 @@ import datetime as dt
 import time
 from typing import Callable, Coroutine, List
 
+from config import Params
+
 
 __all__ = [
-    "is_wednesday_today",
-    "is_thursday_today",
+    "is_same_day_today",
+    "is_next_day_today",
+
     "add_action",
     "wait_for_next_day",
     "everyday_cron",
-
-    "is_tuesday_today",
 ]
 
 
@@ -21,28 +22,31 @@ ACTION_TYPE = Callable[[], Coroutine]
 actions: List[ACTION_TYPE] = []
 
 
-def is_wednesday_today() -> bool:
+def is_same_day_today() -> bool:
     """
-    Returns, Wednesday today in UTC or not.
+    Returns whether the bot should work today (in UTC) or not.
     """
+
+    if not Params.ONEDAY_MODE:
+        # it should always work if it is not a one-day mode
+        return True
 
     utc_now = dt.datetime.utcnow()
-    return dt.date.isoweekday(utc_now) == 3
+    return dt.date.isoweekday(utc_now) == Params.DAY_NUMBER
 
 
-def is_thursday_today() -> bool:
+def is_next_day_today() -> bool:
     """
-    Returns, Thursday today in UTC or not.
+    Returns whether the bot should shut down today(in UTC) or not.
     """
+
+    if not Params.ONEDAY_MODE:
+        # it should not shut down without a one-day mode
+        return False
 
     utc_now = dt.datetime.utcnow()
-    return dt.date.isoweekday(utc_now) == 4
-
-
-def is_tuesday_today() -> bool:
-    # testing function
-    utc_now = dt.datetime.utcnow()
-    return dt.date.isoweekday(utc_now) == 2
+    next_day_number = Params.DAY_NUMBER % 7 + 1
+    return dt.date.isoweekday(utc_now) == next_day_number
 
 
 def add_action(action: ACTION_TYPE):

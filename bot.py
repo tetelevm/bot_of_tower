@@ -15,7 +15,7 @@ from telegram.ext import (
 from messages import *
 from config import Args, Params
 from observer import Observer
-from periodic import everyday_cron, add_action, is_wednesday_today, is_thursday_today, is_tuesday_today
+from periodic import everyday_cron, add_action, is_same_day_today, is_next_day_today
 
 
 UNTRACEABLE_CHATS = (Args.NULL_CHAT, )
@@ -81,7 +81,7 @@ def wednesday_checker(func: Callable):
     inactive, the decorator is just ignored).
     """
 
-    if not Params.WEDNESDAY_MODE:
+    if not Params.ONEDAY_MODE:
         return func
 
     @wraps(func)
@@ -257,23 +257,15 @@ async def only_wednesday_work_switch():
     Turns the bot on if it's Wednesday and off if it's Thursday.
     """
 
-    if is_wednesday_today():
+    if is_same_day_today():
         observer.is_enable = True
-    elif is_thursday_today():
-        observer.is_enable = False
-
-
-async def only_tuesday_work_switch():
-    # testing function
-    if is_tuesday_today():
-        observer.is_enable = True
-    elif is_wednesday_today():
+    elif is_next_day_today():
         observer.is_enable = False
 
 
 end_day_message = (
     MSG_wednesday_end
-    if Params.WEDNESDAY_MODE else
+    if Params.ONEDAY_MODE else
     MSG_day_end
 )
 
@@ -376,9 +368,8 @@ observer = Observer()
 
 run_coro = run_app(Args.TOKEN)
 add_action(send_end_day_message)
-if Params.WEDNESDAY_MODE:
+if Params.ONEDAY_MODE:
     add_action(only_wednesday_work_switch)
-    # add_action(only_tuesday_work_switch)
 cron_coro = everyday_cron()
 
 asyncio.run(pulling(run_coro, cron_coro))
