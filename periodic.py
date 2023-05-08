@@ -65,7 +65,7 @@ async def wait_for_next_day():
     time.
     """
 
-    now = dt.datetime.now()
+    now = dt.datetime.utcnow()
     midnight = now.replace(hour=0, minute=0, second=1)
     seconds_from_midnight = (now - midnight).seconds
     await asyncio.sleep(SECOND_IN_DAYS - seconds_from_midnight)
