@@ -50,6 +50,16 @@ Then you need to:
 - give the bot permission to read and write messages
 - run the bot (`python3 bot.py`)
 
+To run on the hosting server (which is assumed to be linux), the file 
+`bot_of_tower.service` is created. Correct the paths within the file (if needed)
+and run the commands:
+
+```shell
+cp bot_of_tower.service /lib/systemd/system/
+systemctl enable lorembot.service
+systemctl start lorembot.service
+```
+
 The bot is written in `Python`, expects version `Python3.8+`.
 Bot is focused on the Russian language, if you need another, then change the
 messages bot in the `messages.py` file.
