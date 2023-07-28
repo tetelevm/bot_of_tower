@@ -56,8 +56,8 @@ and run the commands:
 
 ```shell
 cp bot_of_tower.service /lib/systemd/system/
-systemctl enable lorembot.service
-systemctl start lorembot.service
+systemctl enable bot_of_tower.service
+systemctl start bot_of_tower.service
 ```
 
 The bot is written in `Python`, expects version `Python3.8+`.
