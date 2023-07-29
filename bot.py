@@ -216,7 +216,7 @@ async def standard_message(update: Update, context: CallbackContext):
 
         # if the tower is small or the message needs to be ignored,
         # there is no need to notify the fall
-        is_show_msg = (not is_scip_update) and (len(tower.letters) < Params.MINIMAL_CHECK_LEN)
+        is_show_msg = (not is_scip_update) and (len(tower.letters) >= Params.MINIMAL_CHECK_LEN)
 
         # nullify the tower and notifying of this
         tower.update(letters=[])
