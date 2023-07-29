@@ -205,15 +205,18 @@ async def standard_message(update: Update, context: CallbackContext):
     tower = observer.get(update.effective_chat.id)
 
     # check for a letter
+    # code will be returned if the trigger is not the expected letter
     code = (await tower.check_correct(update))
     if code is not None:
-        # if the tower is small or the message needs to be ignored,
-        # there is no need to notify the fall
+        # if the trigger is not important or there are no letters anyway,
+        # there is no reason to do anything
         is_scip_update = (code == "ignore") or (not tower.letters)
-        is_show_msg = (not is_scip_update) and (not tower.is_built)
-
         if is_scip_update:
             return
+
+        # if the tower is small or the message needs to be ignored,
+        # there is no need to notify the fall
+        is_show_msg = (not is_scip_update) and (len(tower.letters) < Params.MINIMAL_CHECK_LEN)
 
         # nullify the tower and notifying of this
         tower.update(letters=[])

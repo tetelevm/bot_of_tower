@@ -182,7 +182,7 @@ class ChatObserver:
         """
         Checks if there is already a letter from that participant.
         """
-        return user_id in self.user_ids
+        return user_id not in self.user_ids
 
     async def _is_no_deleted(self, chat: Chat) -> bool:
         """
