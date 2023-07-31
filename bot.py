@@ -10,7 +10,7 @@ from typing import Coroutine, Callable
 
 from telegram import Update, Message, Bot
 from telegram.constants import ParseMode
-from telegram.ext.filters import MessageFilter, ChatType, COMMAND
+from telegram.ext.filters import BaseFilter, MessageFilter, ChatType, COMMAND
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -38,13 +38,28 @@ class NotTrackFilter(MessageFilter):
 
 
 class CommandWithName(MessageFilter):
+    """
+    The command should only be with the bot`s name:
+    /command@name_bot
+    """
+
     def filter(self, message: Message) -> bool:
         command = message.text.splitlines()[0].split(" ")[0]
         return command.endswith(Args.BOT_USERNAME)
 
 
+class NewMessage(BaseFilter):
+    """
+    Filter for only new messages (bicycle?)
+    """
+
+    def check_update(self, update: Update):
+        return bool(update.message)
+
+
 NOTRACK_FILTER = NotTrackFilter()
 COMMAND_WITH_NAME = CommandWithName()
+NEW_MESSAGE = NewMessage()
 
 
 def private_checker(func: Callable):
@@ -143,6 +158,26 @@ async def help(update: Update, context: CallbackContext):
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,
     )
+
+
+async def get_ords(update: Update, context: CallbackContext):
+    """
+    Hidden command for convenient letter checking.
+    Returns ASCII codes of non-space letters from the received message.
+    """
+
+    letters = update.message.text.removeprefix("/get_ords")
+    letters = letters.replace("\n", "").replace("\t", "").replace(" ", "")
+    if not letters:
+        return await update.effective_chat.send_message(MSG_get_ords_no_text)
+    if len(letters) > 30:
+        return await update.effective_chat.send_message(MSG_get_ords_too_long)
+
+    ords = "\n".join(
+        f"{let} : {ord(let)}"
+        for let in letters
+    )
+    await update.effective_chat.send_message(ords)
 
 
 @group_checker
@@ -329,7 +364,8 @@ def create_app(token: str):
     app.add_handler(command_handler("enable", enable))
     app.add_handler(command_handler("please_disable", disable))
 
-    app.add_handler(message_handler(ChatType.PRIVATE, dont_understand))
+    app.add_handler(CommandHandler("get_ords", get_ords, NEW_MESSAGE & COMMAND & ChatType.PRIVATE, block=False))
+    app.add_handler(message_handler(NEW_MESSAGE & ChatType.PRIVATE, dont_understand))
     app.add_handler(message_handler(NOTRACK_FILTER & ChatType.GROUPS, standard_message))
 
     return app
