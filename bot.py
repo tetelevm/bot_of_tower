@@ -1,3 +1,9 @@
+"""
+All the work of the bot happens in this file.
+The business logic of tower checking is not defined here, only the
+interface of interaction with the bot.
+"""
+
 import asyncio
 from functools import wraps, partial
 from typing import Coroutine, Callable
@@ -367,12 +373,14 @@ async def pulling(*coros: Coroutine):
 
 
 bot: Bot
-observer = Observer()
 
-run_coro = run_app(Args.TOKEN)
-add_action(send_end_day_message)
-if Params.ONEDAY_MODE:
-    add_action(only_wednesday_work_switch)
-cron_coro = everyday_cron()
+if __name__ == "__main__":
+    observer = Observer()
+    run_coro = run_app(Args.TOKEN)
 
-asyncio.run(pulling(run_coro, cron_coro))
+    add_action(send_end_day_message)
+    if Params.ONEDAY_MODE:
+        add_action(only_wednesday_work_switch)
+    cron_coro = everyday_cron()
+
+    asyncio.run(pulling(run_coro, cron_coro))
