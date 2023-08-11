@@ -11,6 +11,7 @@ from telegram.error import BadRequest
 from libmc import Client as McClient
 
 from config import Args, Params, Checks
+# from funcs import SIMILAR_CHARS
 from periodic import is_same_day_today
 
 
@@ -19,170 +20,86 @@ __all__ = [
     "Observer",
 ]
 
-# letter, id_author, id_message
-LETTER_MSG_TYPE = Tuple[str, int, int]
-TOWER_TYPE = List[LETTER_MSG_TYPE]
-TOWER_ON_MC_TYPE = Tuple[TOWER_TYPE, int, bool, bool]
-get_null_tower_data = lambda: [[], 0, False, False]
+
+LETTER_TYPE = str
+ID_AUTHOR_TYPE = int
+ID_MESSAGE_TYPE = int
+LETTER_MSG_TYPE = Tuple[LETTER_TYPE, ID_AUTHOR_TYPE, ID_MESSAGE_TYPE]
+TOWER_LETTERS_TYPE = List[LETTER_MSG_TYPE]
+CRASH_TIMES_TYPE = int
+IS_BUILT_TYPE = bool
+IS_DISABLE_TYPE = bool
+TOWER_ON_MC_TYPE = Tuple[
+    TOWER_LETTERS_TYPE,
+    CRASH_TIMES_TYPE,
+    IS_BUILT_TYPE,
+    IS_DISABLE_TYPE,
+]
 
 IS_LETTER = Text(list(set(Params.TOWER)))
-TOWER_LENGTH = len(Params.TOWER)
+TOWER_LENGTH: Final[int] = len(Params.TOWER)
 
 TOWER_META_KEY: Final[str] = "all_towers_chat_ids"
+get_null_tower_data = lambda: [[], 0, False, False]
 
 
 @dataclass
-class ChatObserver:
+class Tower:
     """
-    A class that stores information about the tower in the current chat.
-
-    The necessary attributes - letters, user ids and message ids from
-    the current tower.
-    Also need some flags to control building and crashes: is it
-    necessary to observe this chat, is the tower built today and how
-    many times the bot crashed it.
+    A tower class that stores the letters and includes all the methods
+    for tower checks.
     """
 
-    _mutable_fields = ["letters", "crash_times", "is_built", "is_disable"]
+    letters: TOWER_LETTERS_TYPE = field(default_factory=list)
 
-    mc_client: McClient
-    chat_id: int
-    letters: TOWER_TYPE = field(default_factory=list)
-    crash_times: int = 0
-    is_built: bool = False
-    is_disable: bool = False
-
-    @classmethod
-    def from_mc(cls, mc_client: McClient, chat_id: int) -> ChatObserver:
-        """
-        Loads data from MC by chat_id and creates an observer object.
-        """
-
-        data: TOWER_ON_MC_TYPE = mc_client.get(str(chat_id)) or get_null_tower_data()
-        new_chat_observer = cls(
-            mc_client=mc_client,
-            chat_id=chat_id,
-            letters=data[0],
-            crash_times=data[1],
-            is_built=data[2],
-            is_disable=data[3],
-        )
-        return new_chat_observer
-
-    def to_mc(self):
-        """
-        Overwrites its data in the MC.
-        """
-
-        data = (
-            self.letters,
-            self.crash_times,
-            self.is_built,
-            self.is_disable,
-        )
-        self.mc_client.set(str(self.chat_id), data)
-
-    @property
-    def length(self) -> int:
+    def __len__(self):
         """
         Returns the number of already built letters.
         """
         return len(self.letters)
 
+    def __str__(self):
+        return "".join(self._chars)
+
     @property
-    def chars(self) -> List[str]:
+    def _chars(self) -> List[LETTER_TYPE]:
         """
         A list of letters that are already built.
         """
         return list(letter[0] for letter in self.letters)
 
     @property
-    def user_ids(self) -> List[int]:
+    def _user_ids(self) -> List[ID_AUTHOR_TYPE]:
         """
         A list of user id's that have participated in the current tower.
         """
         return list(letter[1] for letter in self.letters)
 
     @property
-    def message_ids(self) -> List[int]:
+    def _message_ids(self) -> List[ID_MESSAGE_TYPE]:
         """
         A list of the id messages that build up the tower.
         """
         return list(letter[2] for letter in self.letters)
 
-    def __str__(self):
-        return "".join(self.chars)
-
     @property
-    def is_completed(self) -> bool:
+    def _expected_letters(self) -> List[LETTER_TYPE]:
         """
-        Checks if the tower is built or not.
-        """
-        return str(self) == Params.TOWER
-
-    @property
-    def _expected_letter(self) -> str:
-        """
-        The letter that should be next in the tower.
+        A list of letters, one of which may be the next in the tower.
         If the tower is built, it will raise an error.
         """
-        return Params.TOWER[self.length]
 
-    @property
-    def crash_type(self) -> int:
-        """
-        Chooses how and when the bot should crash the tower.
-        The first breaks are unique, the last one is looped.
-        """
-        return min(self.crash_times, len(Params.CRASH_LENS)-1)
+        expected_char = Params.TOWER[len(self)]
+        possible_chars = [expected_char]
+        # if Checks.SIMILAR:
+        #     possible_chars += SIMILAR_CHARS.get(expected_char, [])
+        return possible_chars
 
-    @property
-    def is_need_to_crash(self) -> bool:
-        """
-        Checks if the bot should now crash the tower or not.
-        The condition is that the tower was already built today, and
-        the current tower is long enough for the crash to disappoint
-        the builders.
-        """
-        return (
-            self.is_built
-            and self.length == Params.CRASH_LENS[self.crash_type]
-        )
-
-    def update(
-            self,
-            letters: TOWER_TYPE = None,
-            crash_times: int = None,
-            is_built: bool = None,
-            is_disable: bool = None,
-    ):
-        """
-        Updates chat information and stores it.
-        """
-
-        fields = [letters, crash_times, is_built, is_disable]
-        for (name, value) in zip(self._mutable_fields, fields):
-            if value is not None:
-                setattr(self, name, value)
-        self.to_mc()
-
-    def delete(self):
-        """
-        Deletes all data about this chat from memory.
-        """
-        self.mc_client.delete(str(self.chat_id))
-
-    def add_letter(self, letter: LETTER_MSG_TYPE):
-        """
-        Adds the next letter to the tower.
-        """
-        self.update(letters=self.letters + [letter])
-
-    def _is_no_repetition(self, user_id) -> bool:
+    def _is_new_participant(self, user_id) -> bool:
         """
         Checks if there is already a letter from that participant.
         """
-        return user_id not in self.user_ids
+        return user_id not in self._user_ids
 
     async def _is_no_deleted(self, chat: Chat) -> bool:
         """
@@ -191,13 +108,28 @@ class ChatObserver:
 
         coros = [
             chat.forward_to(Args.NULL_CHAT, message_id)
-            for message_id in self.message_ids
+            for message_id in self._message_ids
         ]
         try:
             await asyncio.gather(*coros)
             return True
         except BadRequest:
             return False
+
+    # =====
+
+    @property
+    def is_completed(self) -> bool:
+        """
+        Checks if the tower is built or not.
+        """
+        return str(self) == Params.TOWER
+
+    def add_letter(self, letter: LETTER_MSG_TYPE):
+        """
+        Adds the next letter to the tower.
+        """
+        self.letters.append(letter)
 
     async def check_correct(self, update: Update) -> Optional[str]:
         """
@@ -211,31 +143,150 @@ class ChatObserver:
         - the event is the expected letter
         - the letter is not from an already participating user
         - no one has deleted a letter (checked only at the end of tower)
+
+        Some checks may not be run depending on the settings.
         """
 
         message = update.message
-        if update.edited_message is not None:
+        if Checks.CHANGING and (update.edited_message is not None):
             # some message has been edited
-            if Checks.CHANGING and update.edited_message.id in self.message_ids:
+            if update.edited_message.id in self._message_ids:
                 # if the message is from the tower, the tower has fallen
                 return "fall_edited"
             else:
                 # if not, we just ignore the event
                 return "ignore"
 
-        if not (IS_LETTER.filter(message) and message.text == self._expected_letter):
+        if not (IS_LETTER.filter(message) and message.text in self._expected_letters):
             # if message is not an expected letter, the tower is fallen
             return "fall"
 
-        if Checks.UNIQUENESS and not self._is_no_repetition(message.from_user.id):
+        if Checks.UNIQUENESS and not self._is_new_participant(message.from_user.id):
             # if the user has already participated, he cannot do it a second time
             return "fall_repetition"
 
+        # if Checks.SIMILAR and self.length == (TOWER_LENGTH - 1):
+        #     pass
+
         # since it is too high cost, we check only at the very end of building
-        if Checks.DELETING and self.length == (TOWER_LENGTH - 1):
+        if Checks.DELETING and len(self) == (TOWER_LENGTH - 1):
             if not (await self._is_no_deleted(message.chat)):
                 # if any message from the tower has been deleted, the tower has fallen
                 return "fall_deleted"
+
+
+@dataclass
+class ChatObserver:
+    """
+    A class that stores information about the tower in the current chat.
+    Also stores some flags to control building and crashes: is it
+    necessary to observe this chat, is the tower built today and how
+    many times the bot crashed it.
+    """
+
+    mc_client: McClient
+    chat_id: int
+    tower: Tower = field(default_factory=Tower)
+    crash_times: CRASH_TIMES_TYPE = 0
+    is_built: IS_BUILT_TYPE = False
+    is_disable: IS_DISABLE_TYPE = False
+
+    def __str__(self):
+        return str(self.tower)
+
+    def __repr__(self):
+        return f"<{self.chat_id} - \"{self.tower}\" - {self.is_built} / {self.crash_times}>"
+
+    @classmethod
+    def _from_mc(cls, mc_client: McClient, chat_id: int) -> ChatObserver:
+        """
+        Loads data from MC by chat_id and creates an observer object.
+        """
+
+        data: TOWER_ON_MC_TYPE = mc_client.get(str(chat_id))
+        data = data or get_null_tower_data()
+        new_chat_observer = cls(
+            mc_client=mc_client,
+            chat_id=chat_id,
+            tower=Tower(letters=data[0]),
+            crash_times=data[1],
+            is_built=data[2],
+            is_disable=data[3],
+        )
+        return new_chat_observer
+
+    def _to_mc(self):
+        """
+        Overwrites its data in the MC.
+        """
+
+        data: TOWER_ON_MC_TYPE = (
+            self.tower.letters,
+            self.crash_times,
+            self.is_built,
+            self.is_disable,
+        )
+        self.mc_client.set(str(self.chat_id), data)
+
+    def _delete(self):
+        """
+        Deletes all data about this chat from memory.
+        """
+        self.mc_client.delete(str(self.chat_id))
+
+    def add_letter(self, letter: LETTER_MSG_TYPE):
+        """
+        Adds the next letter to the tower and stores it.
+        """
+
+        self.tower.add_letter(letter)
+        self._to_mc()
+
+    def nullify(self):
+        """
+        Nullifies the chat tower and stores it.
+        """
+
+        self.tower = Tower()
+        self._to_mc()
+
+    def set(
+            self,
+            crash_times: CRASH_TIMES_TYPE = None,
+            is_built: IS_BUILT_TYPE = None,
+            is_disable: IS_DISABLE_TYPE = None,
+    ):
+        """
+        Updates chat parameters and
+        """
+
+        fields = ["crash_times", "is_built", "is_disable"]
+        for name in fields:
+            value = locals()[name]
+            if value is not None:
+                setattr(self, name, value)
+        self._to_mc()
+
+    @property
+    def is_need_to_crash(self) -> bool:
+        """
+        Checks if the bot should now crash the tower or not.
+        The condition is that the tower was already built today, and
+        the current tower is long enough for the crash to disappoint
+        the builders.
+        """
+        return (
+            self.is_built
+            and len(self.tower) == Params.CRASH_LENS[self.crash_type]
+        )
+
+    @property
+    def crash_type(self) -> int:
+        """
+        Chooses how and when the bot should crash the tower.
+        The first breaks are unique, the last one is looped.
+        """
+        return min(self.crash_times, len(Params.CRASH_LENS)-1)
 
 
 class Observer:
@@ -267,7 +318,7 @@ class Observer:
             self.mc_client.set(TOWER_META_KEY, [])
 
         for chat_id in all_chats:
-            self.infos[chat_id] = ChatObserver.from_mc(self.mc_client, chat_id)
+            self.infos[chat_id] = ChatObserver._from_mc(self.mc_client, chat_id)
 
     @property
     def all_chats(self) -> List[int]:
@@ -302,6 +353,6 @@ class Observer:
         """
 
         for chat in self.infos.values():
-            chat.delete()
+            chat._delete()
         self.infos = dict()
         self.mc_client.set(TOWER_META_KEY, [])

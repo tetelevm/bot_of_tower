@@ -217,7 +217,7 @@ async def disable(update: Update, context: CallbackContext):
     if observer.get(chat_id).is_disable:
         return await update.effective_chat.send_message(MSG_disable_already)
 
-    observer.get(chat_id).update(is_disable=True)
+    observer.get(chat_id).set(is_disable=True)
     await update.effective_chat.send_message(MSG_disable)
 
 
@@ -243,24 +243,24 @@ async def standard_message(update: Update, context: CallbackContext):
     - if it is time to automatically crash the tower, then it crashes the tower
     """
 
-    tower = observer.get(update.effective_chat.id)
+    chat = observer.get(update.effective_chat.id)
 
     # check for a letter
     # code will be returned if the trigger is not the expected letter
-    code = (await tower.check_correct(update))
+    code = (await chat.tower.check_correct(update))
     if code is not None:
         # if the trigger is not important or there are no letters anyway,
         # there is no reason to do anything
-        is_scip_update = (code == "ignore") or (not tower.letters)
+        is_scip_update = (code == "ignore") or (len(chat.tower) == 0)
         if is_scip_update:
             return
 
         # if the tower is small or the message needs to be ignored,
         # there is no need to notify the fall
-        is_show_msg = (not is_scip_update) and (len(tower.letters) >= Params.MINIMAL_CHECK_LEN)
+        is_show_msg = (not is_scip_update) and (len(chat.tower) >= Params.MINIMAL_CHECK_LEN)
 
         # nullify the tower and notifying of this
-        tower.update(letters=[])
+        chat.nullify()
         if is_show_msg:
             incorrect_codes = {
                 "fall": MSG_fall,
@@ -276,20 +276,22 @@ async def standard_message(update: Update, context: CallbackContext):
         update.message.from_user.id,
         update.message.id,
     )
-    tower.add_letter(letter)
+    chat.add_letter(letter)
 
     # if the tower is built, then it's a win
-    if tower.is_completed:
-        tower.update(letters=[], is_built=True)
+    if chat.tower.is_completed:
+        chat.nullify()
+        chat.set(is_built=True)
         return await update.effective_chat.send_message(
             MSG_tower_success,
             parse_mode="html"
         )
 
     # if the tower needs to be crashed, then crash it
-    if tower.is_need_to_crash:
-        msg = MSG_crashes[tower.crash_type]
-        tower.update(letters=[], crash_times=tower.crash_times+1)
+    if chat.is_need_to_crash:
+        msg = MSG_crashes[chat.crash_type]
+        chat.nullify()
+        chat.set(crash_times=chat.crash_times+1)
         return await update.effective_chat.send_message(msg)
 
 

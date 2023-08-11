@@ -6,4 +6,5 @@ env/
 
 data/
 .envs
+.envs_test
 logs.log
