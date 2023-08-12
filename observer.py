@@ -95,11 +95,11 @@ class Tower:
         #     possible_chars += SIMILAR_CHARS.get(expected_char, [])
         return possible_chars
 
-    def _is_new_participant(self, user_id) -> bool:
+    def _is_repeat_participant(self, user_id) -> bool:
         """
         Checks if there is already a letter from that participant.
         """
-        return user_id not in self._user_ids
+        return user_id in self._user_ids
 
     async def _is_no_deleted(self, chat: Chat) -> bool:
         """
@@ -157,11 +157,11 @@ class Tower:
                 # if not, we just ignore the event
                 return "ignore"
 
-        if not (IS_LETTER.filter(message) and message.text in self._expected_letters):
+        if (not IS_LETTER.filter(message)) or (message.text not in self._expected_letters):
             # if message is not an expected letter, the tower is fallen
             return "fall"
 
-        if Checks.UNIQUENESS and not self._is_new_participant(message.from_user.id):
+        if Checks.UNIQUENESS and self._is_repeat_participant(message.from_user.id):
             # if the user has already participated, he cannot do it a second time
             return "fall_repetition"
 

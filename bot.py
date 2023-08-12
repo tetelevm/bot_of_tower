@@ -257,7 +257,7 @@ async def standard_message(update: Update, context: CallbackContext):
 
         # if the tower is small or the message needs to be ignored,
         # there is no need to notify the fall
-        is_show_msg = (not is_scip_update) and (len(chat.tower) >= Params.MINIMAL_CHECK_LEN)
+        is_show_msg = len(chat.tower) >= Params.MINIMAL_CHECK_LEN
 
         # nullify the tower and notifying of this
         chat.nullify()
@@ -269,6 +269,8 @@ async def standard_message(update: Update, context: CallbackContext):
                 "fall_deleted": MSG_fall_deleted,
             }
             return await update.effective_chat.send_message(incorrect_codes[code])
+        else:
+            return
 
     # add a letter to the tower
     letter = (
