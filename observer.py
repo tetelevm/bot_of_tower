@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Dict, List, Tuple, Optional, Final
+from typing import Dict, List, Tuple, Optional, Final, Literal
 from dataclasses import dataclass, field
 
 from telegram import Update, Chat
@@ -11,7 +11,7 @@ from telegram.error import BadRequest
 from libmc import Client as McClient
 
 from config import Args, Params, Checks
-# from funcs import SIMILAR_CHARS
+from funcs import SIMILAR_CHARS, get_all_possible_chars
 from periodic import is_same_day_today
 
 
@@ -36,7 +36,7 @@ TOWER_ON_MC_TYPE = Tuple[
     IS_DISABLE_TYPE,
 ]
 
-IS_LETTER = Text(list(set(Params.TOWER)))
+IS_LETTER = Text(get_all_possible_chars(Params.TOWER, similar_emabled=Checks.SIMILAR))
 TOWER_LENGTH: Final[int] = len(Params.TOWER)
 
 TOWER_META_KEY: Final[str] = "all_towers_chat_ids"
@@ -51,6 +51,16 @@ class Tower:
     """
 
     letters: TOWER_LETTERS_TYPE = field(default_factory=list)
+    CHECKING_CODES = Optional[Literal[
+        "ignore",
+        "fall",
+        "fall_edited",
+        "fall_repetition",
+    ]]
+    CHECKING_COMPLETE_CODES = Optional[Literal[
+        "fail_similar",
+        "fall_deleted",
+    ]]
 
     def __len__(self):
         """
@@ -91,8 +101,10 @@ class Tower:
 
         expected_char = Params.TOWER[len(self)]
         possible_chars = [expected_char]
-        # if Checks.SIMILAR:
-        #     possible_chars += SIMILAR_CHARS.get(expected_char, [])
+
+        if Checks.SIMILAR:
+            possible_chars += SIMILAR_CHARS.get(expected_char, [])
+
         return possible_chars
 
     def _is_repeat_participant(self, user_id) -> bool:
@@ -123,7 +135,7 @@ class Tower:
         """
         Checks if the tower is built or not.
         """
-        return str(self) == Params.TOWER
+        return len(self) == TOWER_LENGTH
 
     def add_letter(self, letter: LETTER_MSG_TYPE):
         """
@@ -131,7 +143,7 @@ class Tower:
         """
         self.letters.append(letter)
 
-    async def check_correct(self, update: Update) -> Optional[str]:
+    async def check_correct(self, update: Update) -> CHECKING_CODES:
         """
         Checks the event to see if it breaks the tower.
         If the tower is broken, the reason code is returned, if not,
@@ -142,7 +154,6 @@ class Tower:
         - the event does not change a letter in the tower
         - the event is the expected letter
         - the letter is not from an already participating user
-        - no one has deleted a letter (checked only at the end of tower)
 
         Some checks may not be run depending on the settings.
         """
@@ -158,21 +169,40 @@ class Tower:
                 return "ignore"
 
         if (not IS_LETTER.filter(message)) or (message.text not in self._expected_letters):
-            # if message is not an expected letter, the tower is fallen
+            # if message is not an expected letter, the tower is fallen;
+            # remember to check for correctness after building
             return "fall"
 
         if Checks.UNIQUENESS and self._is_repeat_participant(message.from_user.id):
             # if the user has already participated, he cannot do it a second time
             return "fall_repetition"
 
-        # if Checks.SIMILAR and self.length == (TOWER_LENGTH - 1):
-        #     pass
+    async def check_after_completion(self, update: Update) -> CHECKING_COMPLETE_CODES:
+        """
+        Checks that are run after the tower is built.
+        That is, if the tower was seemingly built, but something went
+        wrong, the bot will report it at the end.
+        If the tower is broken, the reason code is returned, if not,
+        nothing is returned.
 
-        # since it is too high cost, we check only at the very end of building
-        if Checks.DELETING and len(self) == (TOWER_LENGTH - 1):
-            if not (await self._is_no_deleted(message.chat)):
+         Checks (order is important):
+         - in the tower were not the correct symbols, but similar ones
+        - no one has deleted a letter (checked only at the end of tower)
+
+        Some checks may not be run depending on the settings.
+        """
+
+        if Checks.SIMILAR and (str(self) != Params.TOWER):
+            # if the tower is built but does not equal the required tower, then
+            # someone tricked it!
+            return "fail_similar"
+
+        if Checks.DELETING:
+            # since it is too high cost, checking is the most recent
+            if not (await self._is_no_deleted(update.effective_chat)):
                 # if any message from the tower has been deleted, the tower has fallen
                 return "fall_deleted"
+
 
 
 @dataclass

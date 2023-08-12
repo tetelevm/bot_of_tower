@@ -266,7 +266,6 @@ async def standard_message(update: Update, context: CallbackContext):
                 "fall": MSG_fall,
                 "fall_edited": MSG_fall_edited,
                 "fall_repetition": MSG_fall_repetition,
-                "fall_deleted": MSG_fall_deleted,
             }
             return await update.effective_chat.send_message(incorrect_codes[code])
         else:
@@ -280,8 +279,18 @@ async def standard_message(update: Update, context: CallbackContext):
     )
     chat.add_letter(letter)
 
-    # if the tower is built, then it's a win
     if chat.tower.is_completed:
+        # if the tower is seemingly complete, extra checks still need to be done
+        code_completion = (await chat.tower.check_after_completion(update))
+        if code_completion is not None:
+            # it turns out the tower cracked somewhere during the building
+            incorrect_codes = {
+                "fail_similar": MSG_fail_similar,
+                "fall_deleted": MSG_fall_deleted,
+            }
+            return await update.effective_chat.send_message(incorrect_codes[code_completion])
+
+        # if the tower is built, then it's a win
         chat.nullify()
         chat.set(is_built=True)
         return await update.effective_chat.send_message(

@@ -10,23 +10,15 @@ from funcs import ReadonlyEnum, get_args
 
 __all__ = [
     "VERSION",
-    "Args",
     "Params",
     "Checks",
+    "Args",
 ]
 
 _args = get_args()
 
 
-VERSION: Final[str] = "1.0"
-
-
-class Args(metaclass=ReadonlyEnum):
-    TOKEN = _args["TOKEN"]
-    BOT_USERNAME = _args["BOT_USERNAME"]
-    NULL_CHAT = _args["NULL_CHAT"]
-
-    MEMCACHED_HOST: Final[str] = "localhost:11211"
+VERSION: Final[str] = "1.1"
 
 
 class Params(metaclass=ReadonlyEnum):
@@ -43,4 +35,12 @@ class Checks(metaclass=ReadonlyEnum):
     UNIQUENESS = True
     DELETING = True
     CHANGING = True
-    SPECIAL_MODE = True
+    SIMILAR = True
+
+
+class Args(metaclass=ReadonlyEnum):
+    TOKEN = _args["TOKEN"]
+    BOT_USERNAME = _args["BOT_USERNAME"]
+    NULL_CHAT = _args["NULL_CHAT"]
+
+    MEMCACHED_HOST: Final[str] = "localhost:11211"
